@@ -67,13 +67,13 @@ const hands = await HandLandmarker.createFromOptions(vision, {
     delegate: "GPU",
   },
   runningMode: "VIDEO",
-  numHands: 1,
+  numHands: 2,
 });
 
 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
 video.srcObject = stream;
 await new Promise((r) => (video.onloadeddata = r));
-$("status").textContent = "✅ 준비 완료 — 손을 좌우로 흔들면 짜기, 주먹 쥐고 아래로 내리면 풀기";
+$("status").textContent = "✅ All ready — Wave your hand left and right to build the dress, Make a fist and move your fist down to unravel the dress";
 
 // ===== Motions =====
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -101,24 +101,33 @@ function detectShuttle(x, now) {
   lastX = x;
 }
 
-// Unravel: Pulling down on your fist
-let fistStartY = null, lastUnravel = 0;
-function detectPull(y, now) {
-  if (fistStartY === null) { fistStartY = y; return; }
-  if (y - fistStartY > PULL_DOWN && now - lastUnravel > COOLDOWN_MS) {
-    emit("unravel");
-    lastUnravel = now;
-    fistStartY = y; // 계속 내리면 또 풀림
+// 풀기: 양손 주먹 상태에서 왼손/오른손 번갈아 아래로 당기기
+let pullStartY = [null, null];  // [화면 왼쪽 손, 화면 오른쪽 손]의 기준 높이
+let lastPullHand = -1;          // 마지막으로 당긴 손 (-1 = 아직 없음)
+let lastUnravel = 0;
+
+function detectAlternatePull(ys, now) {
+  for (let i = 0; i < 2; i++) {
+    const y = ys[i];
+    if (pullStartY[i] === null || y < pullStartY[i]) { pullStartY[i] = y; continue; }
+    if (y - pullStartY[i] > PULL_DOWN) {
+      pullStartY[i] = y;
+      if (i === lastPullHand) { flash("↔️ Pull by opposite hand!!!", "#fbbf24"); continue; }
+      if (now - lastUnravel > COOLDOWN_MS) {
+        emit("unravel");
+        lastUnravel = now;
+        lastPullHand = i;
+      }
+    }
   }
-  if (y < fistStartY) fistStartY = y; // 위로 올리면 기준점 리셋
 }
-
 function resetTracking() {
-  lastX = null; dir = 0; swingStartX = null; fistStartY = null;
+    lastX = null; dir = 0; swingStartX = null; pullStartY = [null, null];
 }
 
-// ===== 메인 루프 =====
+// ===== Main Loop =====
 let lastVideoTime = -1;
+let lastHandCount = 0;
 function loop() {
   const now = performance.now();
   if (video.currentTime !== lastVideoTime) {
@@ -128,23 +137,40 @@ function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    if (result.landmarks.length > 0) {
-      const lm = result.landmarks[0];
+        const all = result.landmarks;
+
+    // 손 개수가 바뀌면 추적 초기화 (안 하면 위치가 튀어서 오작동)
+    if (all.length !== lastHandCount) { resetTracking(); lastHandCount = all.length; }
+
+    for (const lm of all) {
       draw.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { color: "#7dd3fc", lineWidth: 4 });
       draw.drawLandmarks(lm, { color: "#ffffff", lineWidth: 1, radius: 3 });
+    }
 
-      const wrist = lm[0];
-      if (isFist(lm)) {
-        $("handState").textContent = "✊ Build";
-        lastX = null; dir = 0; // 주먹일 땐 짜기 판정 안 함
-        detectPull(wrist.y, now);
-      } else {
-        $("handState").textContent = "🖐 Unravel";
-        fistStartY = null;
-        detectShuttle(wrist.x, now);
-      }
+    const fists = all.filter(isFist).length;
+
+    if (all.length === 2 && fists === 2) {
+      // 양손 주먹 → 왼손/오른손 번갈아 당기기
+      lastX = null; dir = 0;
+      // 화면이 좌우반전이라 x가 큰 손이 화면 왼쪽 손
+      const [screenLeft, screenRight] = [...all].sort((a, b) => b[0].x - a[0].x);
+      detectAlternatePull([screenLeft[0].y, screenRight[0].y], now);
+      $("handState").textContent =
+        lastPullHand === 0 ? "✊✊ 이제 오른손 당겨" :
+        lastPullHand === 1 ? "✊✊ 이제 왼손 당겨" :
+        "✊✊ 양손 주먹 (아무 손이나 당겨)";
+    } else if (fists > 0) {
+      // 한 손만 주먹이면 아무것도 안 함
+      $("handState").textContent = "✊ 양손 다 주먹 쥐어야 풀려";
+      lastX = null; dir = 0; pullStartY = [null, null];
+    } else if (all.length > 0) {
+      // 손 펴면 짜기 (양손이면 평균 위치로)
+      $("handState").textContent = all.length === 2 ? "🖐🖐 양손 (짜기 모드)" : "🖐 한 손 (짜기 모드)";
+      pullStartY = [null, null];
+      const avgX = all.reduce((s, lm) => s + lm[0].x, 0) / all.length;
+      detectShuttle(avgX, now);
     } else {
-      $("handState").textContent = "Cant see the hand";
+      $("handState").textContent = "손 안 보임";
       resetTracking();
     }
   }
