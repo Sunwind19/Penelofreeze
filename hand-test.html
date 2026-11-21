@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>Penelope – Hand Test</title>
+<style>
+  body { margin: 0; background: #0b1020; color: #e8eefc; font-family: system-ui, sans-serif; }
+  #wrap { position: relative; width: 640px; height: 480px; margin: 20px auto 0; }
+  video, canvas { position: absolute; inset: 0; width: 640px; height: 480px; transform: scaleX(-1); border-radius: 12px; }
+  #hud { width: 640px; margin: 12px auto; font-size: 18px; line-height: 1.6; }
+  .big { font-size: 28px; font-weight: 700; }
+  #flash { transition: color .15s; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+</div>
+<div id="hud">
+  <div id="status">Importing model...</div>
+  <div class="big">Build: <span id="weaveCount">0</span> · Unravel: <span id="unravelCount">0</span></div>
+  <div>손: <span id="handState">-</span> · <span id="flash"></span></div>
+  <div style="opacity:.6">Key: ← → Build / Space Unravel</div>
+</div>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver, DrawingUtils }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/vision_bundle.mjs";
+
+// ===== Tuning =====
+const SHUTTLE_MIN_WIDTH = 0.25; // Building dress
+const MOVE_NOISE = 0.01;        // Ignore small movement
+const PULL_DOWN = 0.12;         // Building dress distance
+const COOLDOWN_MS = 250;        
+
+// ===== Input layer =====
+const input = new EventTarget();
+const emit = (name) => input.dispatchEvent(new Event(name));
+
+// Keybaord backup
+addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") emit("weave");
+  if (e.key === " ") { e.preventDefault(); emit("unravel"); }
+});
+
+// For test
+let weaves = 0, unravels = 0;
+const $ = (id) => document.getElementById(id);
+function flash(text, color) { $("flash").textContent = text; $("flash").style.color = color; }
+input.addEventListener("weave",   () => { $("weaveCount").textContent = ++weaves;   flash("🧵 한 줄 짰다!", "#7dd3fc"); });
+input.addEventListener("unravel", () => { $("unravelCount").textContent = ++unravels; flash("🌙 한 줄 풀었다!", "#f9a8d4"); });
+
+// ===== Recognition set-up =====
+const video = $("video");
+const canvas = $("canvas");
+const ctx = canvas.getContext("2d");
+const draw = new DrawingUtils(ctx);
+
+const vision = await FilesetResolver.forVisionTasks(
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm"
+);
+const hands = await HandLandmarker.createFromOptions(vision, {
+  baseOptions: {
+    modelAssetPath:
+      "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+    delegate: "GPU",
+  },
+  runningMode: "VIDEO",
+  numHands: 1,
+});
+
+const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+video.srcObject = stream;
+await new Promise((r) => (video.onloadeddata = r));
+$("status").textContent = "✅ 준비 완료 — 손을 좌우로 흔들면 짜기, 주먹 쥐고 아래로 내리면 풀기";
+
+// ===== Motions =====
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function isFist(lm) {
+  const tips = [8, 12, 16, 20], bases = [5, 9, 13, 17];
+  let curled = 0;
+  for (let i = 0; i < 4; i++) if (dist(lm[tips[i]], lm[0]) < dist(lm[bases[i]], lm[0])) curled++;
+  return curled >= 3;
+}
+
+// Building: Left / Right motion
+let lastX = null, dir = 0, swingStartX = null, lastWeave = 0;
+function detectShuttle(x, now) {
+  if (lastX === null) { lastX = swingStartX = x; return; }
+  const d = x - lastX;
+  const newDir = Math.abs(d) > MOVE_NOISE ? Math.sign(d) : dir;
+  if (newDir !== 0 && dir !== 0 && newDir !== dir) {
+    if (Math.abs(x - swingStartX) > SHUTTLE_MIN_WIDTH && now - lastWeave > COOLDOWN_MS) {
+      emit("weave");
+      lastWeave = now;
+    }
+    swingStartX = x;
+  }
+  dir = newDir;
+  lastX = x;
+}
+
+// Unravel: Pulling down on your fist
+let fistStartY = null, lastUnravel = 0;
+function detectPull(y, now) {
+  if (fistStartY === null) { fistStartY = y; return; }
+  if (y - fistStartY > PULL_DOWN && now - lastUnravel > COOLDOWN_MS) {
+    emit("unravel");
+    lastUnravel = now;
+    fistStartY = y; // 계속 내리면 또 풀림
+  }
+  if (y < fistStartY) fistStartY = y; // 위로 올리면 기준점 리셋
+}
+
+function resetTracking() {
+  lastX = null; dir = 0; swingStartX = null; fistStartY = null;
+}
+
+// ===== 메인 루프 =====
+let lastVideoTime = -1;
+function loop() {
+  const now = performance.now();
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const result = hands.detectForVideo(video, now);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (result.landmarks.length > 0) {
+      const lm = result.landmarks[0];
+      draw.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { color: "#7dd3fc", lineWidth: 4 });
+      draw.drawLandmarks(lm, { color: "#ffffff", lineWidth: 1, radius: 3 });
+
+      const wrist = lm[0];
+      if (isFist(lm)) {
+        $("handState").textContent = "✊ Build";
+        lastX = null; dir = 0; // 주먹일 땐 짜기 판정 안 함
+        detectPull(wrist.y, now);
+      } else {
+        $("handState").textContent = "🖐 Unravel";
+        fistStartY = null;
+        detectShuttle(wrist.x, now);
+      }
+    } else {
+      $("handState").textContent = "Cant see the hand";
+      resetTracking();
+    }
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
