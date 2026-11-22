@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candle</title>
+    <link rel="stylesheet" href="candle.css">
+</head>
+<body>
+    <img id="candle" src="candle1.gif" alt="candle" width="500 px">
+<div id="time">1:30</div>
+
+<script>
+const TOTAL_MS = 90 * 1000;
+const CANDLE_GIFS = ["candle1.gif", "candle2.gif", "candle3.gif", "candle4.gif"]; // full -> almost out
+const candle = document.getElementById("candle");
+const timeEl = document.getElementById("time");
+
+let startTime, timerId, currentStage = -1;
+
+function startCandle() {
+  startTime = Date.now();
+  currentStage = -1;
+  timerId = setInterval(tick, 100);
+  tick();
+}
+
+function tick() {
+  const elapsed = Date.now() - startTime;
+  const remaining = Math.max(0, TOTAL_MS - elapsed);
+
+  const stage = Math.min(3, Math.floor(elapsed / (TOTAL_MS / 4)));
+  if (stage !== currentStage) {          // only change src when the stage changes,
+    currentStage = stage;                // otherwise the GIF restarts every tick
+    candle.src = CANDLE_GIFS[stage];
+  }
+
+  const secs = Math.ceil(remaining / 1000);
+  timeEl.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+
+  if (remaining <= 0) {
+    clearInterval(timerId);
+    candleBurnedOut();
+  }
+}
+
+function candleBurnedOut() {
+  candle.src = "candle5.gif";
+}
+
+function stopCandle() { clearInterval(timerId); } 
+
+startCandle();
+</script>
+</body>
+</html>
