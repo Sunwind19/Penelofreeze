@@ -13,18 +13,21 @@ const GRACE_MS = 700; // reaction time right after a state change (mistakes forg
 
 let state = null, stateStart = 0, stateEnd = 0, doneInState = 0;
 let dress = 0, rounds = 0, alive = false, timer = null;
-
+let buildN = 0, unravelN = 0; // 판에 보여줄 이번 게임의 짜기/풀기 횟수
 function showBanner(img, sub, color) {
   $("bannerImg").src = img;
   $("bannerSub").innerHTML = sub;
   $("timeBar").style.background = color;
 }
 
-const MAX_ROWS = 50; // 이만큼 짜면 그림 완성
+const MAX_ROWS = 20; // 이만큼 짜면 그림 완성
+const START_ROWS = Math.round(MAX_ROWS / 4);
 
 function updateStats() {
   $("dress").textContent = dress;
   $("rounds").textContent = rounds;
+  $("buildNum").textContent = buildN;
+  $("unravelNum").textContent = unravelN;
   // 짠 만큼 위에서부터 보여줌 (나머지 아래쪽은 잘라서 숨김)
   const shown = Math.min(dress, MAX_ROWS) / MAX_ROWS * 100;
   $("tapImg").style.clipPath = `inset(0 0 ${100 - shown}% 0)`;
@@ -50,11 +53,19 @@ function setHands(stateName) {
   el.style.visibility = "visible";
   if (!el.src.endsWith(gif)) el.src = gif;
 }
-
+// ===== 난이도: 처음 5초는 원래 속도, 그 뒤로 상태가 점점 짧아짐 =====
+const RAMP_START_MS = 5000;  // 처음 5초는 원래 속도
+const MIN_SPEED = 0.45;      // 게임 끝날 때쯤 상태 길이 = 원래의 45%
+function durationScale() {
+  const t = performance.now() - gameStart;
+  if (t < RAMP_START_MS) return 1;
+  const p = Math.min(1, (t - RAMP_START_MS) / (TOTAL_MS - RAMP_START_MS)); // 0 → 1
+  return 1 - (1 - MIN_SPEED) * p;
+}
 function enterState(next) {
   state = next;
   const s = STATES[state];
-  const dur = s.min + Math.random() * (s.max - s.min);
+  const dur = (s.min + Math.random() * (s.max - s.min)) * durationScale();
   stateStart = performance.now();
   stateEnd = stateStart + dur;
   doneInState = 0;
@@ -82,7 +93,7 @@ function die(reason) {
     showBanner("gameovercentered.PNG", `${reason} · Rounds survived: ${rounds}`, "#f87171");
 }
 // ===== Candle timer: 1:30 버티면 승리 =====
-const TOTAL_MS = 90 * 1000;
+const TOTAL_MS = 20 * 1000;
 const CANDLE_GIFS = ["candle1.GIF", "candle2.GIF", "candle3.GIF", "candle4.GIF"]; // full -> almost out
 const CANDLE_OUT = "candle5.gif";
 // GIF마다 촛불 바닥 위치가 달라서, 바닥을 맞추려고 아래로 내리는 양 (%)
@@ -99,7 +110,8 @@ function setCandle(src) {
 function updateCandle() {
   const elapsed = performance.now() - gameStart;
   const remaining = Math.max(0, TOTAL_MS - elapsed);
-  const stage = Math.min(3, Math.floor(elapsed / (TOTAL_MS / 4)));
+  const n = CANDLE_GIFS.length;
+  const stage = Math.min(n - 1, Math.floor(elapsed / (TOTAL_MS / n)));
   if (stage !== candleStage) { candleStage = stage; setCandle(CANDLE_GIFS[stage]); }
   const secs = Math.ceil(remaining / 1000);
   $("time").textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
@@ -114,7 +126,7 @@ function win() {
   showBanner("titlecentered.PNG", `You survived the night! Dress: ${dress} rows`, "#fcd34d");
 }
 function startGame() {
-  dress = 0; rounds = 0; state = null; alive = true;
+  dress = START_ROWS; rounds = 0; state = null; alive = true;
   gameStart = performance.now(); candleStage = -1;
   updateStats();
   enterState("BUILD");
@@ -128,11 +140,11 @@ function onAction(type) {
     return;
   }
   if (state === "BUILD") {
-    if (type === "weave") { dress++; doneInState++; }
+    if (type === "weave") { dress++; doneInState++; buildN++; }
     else if (!inGrace) return die("The suitors caught you unraveling!");
   }
   if (state === "UNRAVEL") {
-    if (type === "unravel") { dress = Math.max(0, dress - 1); doneInState++; }
+    if (type === "unravel") { dress = Math.max(0, dress - 1); doneInState++; unravelN++; }
     // building at night is just ignored
   }
   updateStats();

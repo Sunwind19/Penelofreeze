@@ -13,19 +13,44 @@ body {
   box-shadow: 0 8px 24px rgba(60, 20, 80, .35);
 }
 video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+/* Build / Unravel 판 (왼쪽 위) */
+/* Build / Unravel 판 (왼쪽 위) */
 #hud {
-  position: fixed; left: 2vw; top: 2vw; max-width: 22vw;
-  padding: 10px 14px; border-radius: 12px;
-  background: rgba(135, 158, 239, 0.75);
-  font-size: 16px; line-height: 1.5;
+  --hudW: min(18vw, 26vh);           /* 판 크기 (조절은 여기) */
+  position: fixed; left: 2vw; top: 2vw;
+  width: var(--hudW); aspect-ratio: 884 / 482;
+  overflow: hidden; z-index: 4;
 }
+/* 이미지 여백 잘라내고 판 부분만 보이게 */
+#hudImg { position: absolute; width: 256.3%; left: -75.7%; top: -122%; max-width: none; }
+/* 숫자: BUILD: / UNRAVEL: 글자 바로 오른쪽 */
+.hudNum {
+  position: absolute; transform: translateY(-50%);
+  font-size: calc(var(--hudW) * 0.13); font-weight: 900; color: #111;
+  line-height: 1;
+}
+#buildNum   { left: 66%;   top: 27.6%; }
+#unravelNum { left: 74.5%; top: 65.2%; }
+#hudDebug { display: none; }
+/* 이미지 여백 잘라내고 판 부분만 보이게 */
+#hudImg { position: absolute; width: 256.3%; left: -75.7%; top: -122%; max-width: none; }
+/* 숫자: BUILD: / UNRAVEL: 글자 바로 오른쪽 */
+.hudNum {
+  position: absolute; transform: translateY(-50%);
+  font-size: calc(var(--hudW) * 0.13); font-weight: 900; color: #111;
+  line-height: 1;
+}
+#buildNum   { left: 66%;   top: 27.6%; }
+#unravelNum { left: 74.5%; top: 65.2%; }
+#hudDebug { display: none; }
 .big { font-size: 28px; font-weight: 700; }
 #flash { transition: color .15s; }
-
+/* 배너 크기: 밧줄 위치 계산에도 같이 씀 */
+:root { --bannerW: min(26vw, 32vh); }
 /* Game state banner */
 #banner {
   position: fixed; top: 1.5vh; left: 50%; transform: translateX(-50%);
-  width: min(26vw, 36vh);          /* 배너 이미지 크기 (tapestry랑 안 겹치게) */
+  width: var(--bannerW);         /* 배너 이미지 크기 (tapestry랑 안 겹치게) */
   z-index: 4;
 }
 /* 시간 바: 이미지 바깥, 살짝 위 */
@@ -42,12 +67,12 @@ video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; transfo
 }
 /* Tapestry: 짤수록 위에서부터 드러남 */
 #tapestry {
-  position: fixed; left: 50%; top: 57%; transform: translate(-50%, -50%);
+  position: fixed; left: 50%; top: 60%; transform: translate(-50%, -50%);  /* 밧줄 보이게 살짝 내림 */
   height: 62vh; aspect-ratio: 1292 / 1722;
 }
 #tapestry img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #tapGhost { opacity: .18; filter: grayscale(1); }          /* 완성될 그림의 희미한 밑그림 */
-#tapImg { clip-path: inset(0 0 100% 0); transition: clip-path .35s ease-out; }
+#tapImg { clip-path: inset(0 0 75% 0); transition: clip-path .35s ease-out; }
 /* 손 GIF: 카메라 뒤에서 나와서 tapestry 쪽으로 45도 뻗기 */
 #hands {
   position: fixed;
@@ -82,3 +107,16 @@ video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; transfo
   text-shadow: 0 2px 8px rgba(60, 20, 40, .7);
   white-space: nowrap;
 }
+/* 밧줄: 배너 아래 ~ tapestry 위를 이어줌. 둘보다 뒤에 깔림 */
+#ropes {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  width: calc(var(--bannerW) * 0.8);
+  /* 배너 그림 아래끝보다 3vh 위에서 시작 (배너 뒤로 숨게) */
+  top: calc(2.5vh + 8px + var(--bannerW) * 0.552 - 3vh);
+  /* tapestry 위끝(60% - 31vh = 29vh)보다 3vh 아래까지 (tapestry 뒤로 숨게) */
+  height: calc(32vh - (2.5vh + 8px + var(--bannerW) * 0.552 - 3vh));
+  overflow: hidden;
+  pointer-events: none;
+}
+/* 이미지 여백 잘라내고 밧줄 부분만 늘려서 채움 */
+#ropes img { position: absolute; width: 282.2%; left: -95.5%; height: 411%; top: -242.3%; max-width: none; }

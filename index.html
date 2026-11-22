@@ -7,17 +7,18 @@
 </head>
 <body>
 <div id="banner">
-  <div id="bannerText">Penelofreeze</div>
-  <div id="bannerSub">Press Enter to start</div>
   <div id="timeWrap"><div id="timeBar"></div></div>
+  <div id="bannerImgBox"><img id="bannerImg" src="titlecentered.PNG" alt="Penelofreeze - Press Enter to start" /></div>
+  <div id="bannerSub"></div>
 </div>
+<div id="ropes"><img src="ropecentered.PNG" alt="" /></div>
 <div id="tapestry">
   <img id="tapGhost" src="tapestry.jpg" alt="" />
   <img id="tapImg" src="tapestry.jpg" alt="Penelope's tapestry" />
 </div>
 <div id="candleBox">
   <img id="candle" src="candle1.GIF" alt="candle" />
-  <div id="time">1:30</div>
+  <div id="time">0:20</div>
 </div>
 <div id="wrap">
   <video id="video" autoplay playsinline muted></video>
@@ -25,11 +26,14 @@
 </div>
 <img id="hands" src="updownhands.GIF" alt="" />
 <div id="hud">
-  <div id="status">Importing model...</div>
-  <div class="big">Build: <span id="weaveCount">0</span> · Unravel: <span id="unravelCount">0</span></div>
-  <div>Dress: <span id="dress">0</span> rows · Rounds: <span id="rounds">0</span></div>
-  <div>Hand: <span id="handState">-</span> · <span id="flash"></span></div>
-  <div style="opacity:.6">Key: ← → Build / Space Unravel</div>
+  <img id="hudImg" src="buildunraveldisplaynew.PNG" alt="Build / Unravel" />
+  <span id="buildNum" class="hudNum">0</span>
+  <span id="unravelNum" class="hudNum">0</span>
+  <!-- 코드가 아직 여기에 글자를 쓰니까 지우지 말고 숨겨만 둠 -->
+  <div id="hudDebug">
+    <span id="status"></span><span id="weaveCount"></span><span id="unravelCount"></span>
+    <span id="dress"></span><span id="rounds"></span><span id="handState"></span><span id="flash"></span>
+  </div>
 </div>
 <script type="module" src="main.js?v=2"></script>
 <script type="module" src="game.js?v=3"></script>
