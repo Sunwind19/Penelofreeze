@@ -132,8 +132,36 @@ function win() {
   setCandle(CANDLE_OUT);
   $("timeBar").style.width = "0";
   showBanner("titlecentered.PNG", `You survived the night! Dress: ${dress} rows`, "#fcd34d");
+  showEnding("survive");      // 엔딩1
+}
+// ===== 엔딩 =====
+const ENDINGS = {
+  survive:   "ending1.png",
+  dressDone: "ending2.png",
+  caught:    "ending3.png",
+};
+Object.values(ENDINGS).forEach((src) => { new Image().src = src; });
+let endingTimer = null;
+function showEnding(key, delay = 800) {
+  clearTimeout(endingTimer);
+  endingTimer = setTimeout(() => {
+    $("endingImg").src = ENDINGS[key];
+    $("ending").classList.remove("hidden");
+  }, delay);
+}
+function hideEnding() {
+  clearTimeout(endingTimer);
+  $("ending").classList.add("hidden");
+}
+function dressComplete() {
+  alive = false;
+  clearTimeout(timer);
+  $("timeBar").style.width = "0";
+  updateStats();
+  showEnding("dressDone");
 }
 function startGame() {
+  hideEnding();
   dress = START_ROWS; rounds = 0; state = null; alive = true;
   buildN = 0; unravelN = 0;
   gameStart = performance.now(); candleStage = -1;
@@ -149,8 +177,14 @@ function onAction(type) {
     return;
   }
   if (state === "BUILD") {
-    if (type === "weave") { dress++; doneInState++; buildN++; }
-    else if (!inGrace) return die("The suitors caught you unraveling!");
+    if (type === "weave") {
+      dress++; doneInState++; buildN++;
+      if (dress >= MAX_ROWS) return dressComplete();   // 다 짜버리면 엔딩2
+    }
+    else if (!inGrace) {
+      die("The suitors caught you unraveling!");
+      return showEnding("caught");                     // 엔딩3
+    }
   }
   if (state === "UNRAVEL") {
     if (type === "unravel") { dress = Math.max(0, dress - 1); doneInState++; unravelN++; }
