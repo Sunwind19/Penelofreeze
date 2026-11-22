@@ -62,6 +62,13 @@ function durationScale() {
   const p = Math.min(1, (t - RAMP_START_MS) / (TOTAL_MS - RAMP_START_MS)); // 0 → 1
   return 1 - (1 - MIN_SPEED) * p;
 }
+// ===== 상태별 새 그림 =====
+const BIRD_IMGS = {
+  BUILD:   "bird3.png",   // Suitors are watching
+  UNRAVEL: "bird1.png",   // Unravel the dress
+  FREEZE:  "bird2.png",   // Freeze!
+};
+Object.values(BIRD_IMGS).forEach((src) => { new Image().src = src; }); // 미리 불러두기
 function enterState(next) {
   state = next;
   const s = STATES[state];
@@ -71,6 +78,7 @@ function enterState(next) {
   doneInState = 0;
   showBanner(s.img, "", s.color);
   setHands(state);
+  $("bird").src = BIRD_IMGS[state];
   clearTimeout(timer);
   timer = setTimeout(endState, dur);
 }
@@ -127,6 +135,7 @@ function win() {
 }
 function startGame() {
   dress = START_ROWS; rounds = 0; state = null; alive = true;
+  buildN = 0; unravelN = 0;
   gameStart = performance.now(); candleStage = -1;
   updateStats();
   enterState("BUILD");
@@ -166,3 +175,11 @@ function tickUI() {
   requestAnimationFrame(tickUI);
 }
 tickUI();
+// ===== 배경음악 =====
+const bgm = new Audio("Troy.mp3");
+bgm.loop = true;      // 끝나면 처음부터 반복
+bgm.volume = 0.5;     // 0 ~ 1 (크기 조절은 여기)
+function playBgm() { bgm.play().catch(() => {}); }
+playBgm();                                          // 바로 재생 시도 (브라우저가 막으면 조용히 넘어감)
+addEventListener("keydown", playBgm, { once: true }); // 막혔으면 첫 키 입력 때 재생
+addEventListener("click", playBgm, { once: true });   // 또는 첫 클릭 때

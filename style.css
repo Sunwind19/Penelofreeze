@@ -120,3 +120,13 @@ video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; transfo
 }
 /* 이미지 여백 잘라내고 밧줄 부분만 늘려서 채움 */
 #ropes img { position: absolute; width: 282.2%; left: -95.5%; height: 411%; top: -242.3%; max-width: none; }
+/* 새: BUILD 판이랑 같은 x, 촛불 중간 높이 */
+#bird {
+  position: fixed;
+  left: 2vw;                    /* BUILD 판이랑 같은 왼쪽 위치 */
+  bottom: 16vh;                 /* 촛불 중간쯤 높이 (위아래 조절은 여기) */
+  width: min(18vw, 26vh);       /* BUILD 판이랑 같은 폭 (크기 조절은 여기) */
+  transform: translateY(50%);   /* 그림 한가운데를 그 높이에 맞춤 */
+  pointer-events: none;
+  z-index: 3;
+}
