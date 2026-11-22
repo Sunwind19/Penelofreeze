@@ -6,7 +6,8 @@ const SHUTTLE_MIN_WIDTH = 0.25; // Building dress
 const MOVE_NOISE = 0.01;        // Ignore small movement
 const PULL_DOWN = 0.12;         // Building dress distance
 const COOLDOWN_MS = 250;        
-
+const PULL_COOLDOWN_MS = 120;
+const UNRAVEL_GRACE_MS = 300;
 // ===== Input layer =====
 export const input = new EventTarget();
 const emit = (name) => input.dispatchEvent(new Event(name));
@@ -41,6 +42,9 @@ const hands = await HandLandmarker.createFromOptions(vision, {
   },
   runningMode: "VIDEO",
   numHands: 2,
+  minHandDetectionConfidence: 0.4,
+  minHandPresenceConfidence: 0.4,
+  minTrackingConfidence: 0.3, 
 });
 
 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
@@ -77,7 +81,8 @@ function detectShuttle(x, now) {
 // 풀기: 양손 주먹 상태에서 왼손/오른손 번갈아 아래로 당기기
 let pullStartY = [null, null];  // [화면 왼쪽 손, 화면 오른쪽 손]의 기준 높이
 let lastPullHand = -1;          // 마지막으로 당긴 손 (-1 = 아직 없음)
-let lastUnravel = 0;
+let lastPullTime = [0, 0];      // 손마다 따로 쿨다운 (양손 번갈아 빠르게 해도 안 막힘)
+let lastBothFists = 0;          // 마지막으로 양손 주먹이 보인 시각
 
 function detectAlternatePull(ys, now) {
   for (let i = 0; i < 2; i++) {
@@ -85,18 +90,17 @@ function detectAlternatePull(ys, now) {
     if (pullStartY[i] === null || y < pullStartY[i]) { pullStartY[i] = y; continue; }
     if (y - pullStartY[i] > PULL_DOWN) {
       pullStartY[i] = y;
+      if (now - lastPullTime[i] < PULL_COOLDOWN_MS) continue; // 같은 손 떨림 무시
+      lastPullTime[i] = now;
       if (i === lastPullHand) { flash("↔️ Pull by opposite hand!!!", "#fbbf24"); continue; }
-      if (now - lastUnravel > COOLDOWN_MS) {
-        emit("unravel");
-        lastUnravel = now;
-        lastPullHand = i;
-      }
+      emit("unravel");
+      lastPullHand = i;
     }
   }
 }
-function resetTracking() {
-    lastX = null; dir = 0; swingStartX = null; pullStartY = [null, null];
-}
+function resetWeave() { lastX = null; dir = 0; swingStartX = null; }
+function resetPull()  { pullStartY = [null, null]; }
+function resetTracking() { resetWeave(); resetPull(); }
 
 // ===== Main Loop =====
 let lastVideoTime = -1;
@@ -110,21 +114,24 @@ function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const all = result.landmarks;
+    const all = result.landmarks;
+    const fists = all.filter(isFist).length;
+    const bothFists = all.length === 2 && fists === 2;
+    if (bothFists) lastBothFists = now;
+    // 양손 주먹이 잠깐 끊겨도 UNRAVEL_GRACE_MS 동안은 풀기 모드 유지
+    const inUnravelMode = now - lastBothFists < UNRAVEL_GRACE_MS;
 
-    // 손 개수가 바뀌면 추적 초기화 (안 하면 위치가 튀어서 오작동)
-    if (all.length !== lastHandCount) { resetTracking(); lastHandCount = all.length; }
+    // 손 개수가 바뀌면 짜기 추적만 초기화 (풀기 기준점은 유지)
+    if (all.length !== lastHandCount) { resetWeave(); lastHandCount = all.length; }
 
     for (const lm of all) {
       draw.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { color: "#7dd3fc", lineWidth: 4 });
       draw.drawLandmarks(lm, { color: "#ffffff", lineWidth: 1, radius: 3 });
     }
 
-    const fists = all.filter(isFist).length;
-
-    if (all.length === 2 && fists === 2) {
-      // 양손 주먹 → 왼손/오른손 번갈아 당기기
-      lastX = null; dir = 0;
+    if (all.length === 2 && inUnravelMode) {
+      // 양손 주먹 (또는 방금까지 주먹) → 왼손/오른손 번갈아 당기기
+      resetWeave();
       // 화면이 좌우반전이라 x가 큰 손이 화면 왼쪽 손
       const [screenLeft, screenRight] = [...all].sort((a, b) => b[0].x - a[0].x);
       detectAlternatePull([screenLeft[0].y, screenRight[0].y], now);
@@ -132,12 +139,14 @@ function loop() {
         lastPullHand === 0 ? "✊✊ Right Hand!" :
         lastPullHand === 1 ? "✊✊ Left Hand" :
         "✊✊ Make a fist in both hands! (Any hands)";
+    } else if (inUnravelMode) {
+      // 빠르게 당기다 손을 한 프레임 놓침 → 기준점 그대로 두고 기다림
     } else if (fists > 0) {
       $("handState").textContent = "✊ Need both hands to make a fist!";
-      lastX = null; dir = 0; pullStartY = [null, null];
+      resetWeave(); resetPull();
     } else if (all.length > 0) {
       $("handState").textContent = all.length === 2 ? "🖐🖐 Both hand (Build)" : "🖐 One hand (Build))";
-      pullStartY = [null, null];
+      resetPull();
       const avgX = all.reduce((s, lm) => s + lm[0].x, 0) / all.length;
       detectShuttle(avgX, now);
     } else {
