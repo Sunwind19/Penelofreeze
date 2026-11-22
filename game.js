@@ -18,12 +18,15 @@ function showBanner(text, sub, color) {
   $("bannerSub").innerHTML = sub;
   $("timeBar").style.background = color;
 }
+const MAX_ROWS = 20; // 이만큼 짜면 그림 완성
 
 function updateStats() {
   $("dress").textContent = dress;
   $("rounds").textContent = rounds;
+  // 짠 만큼 위에서부터 보여줌 (나머지 아래쪽은 잘라서 숨김)
+  const shown = Math.min(dress, MAX_ROWS) / MAX_ROWS * 100;
+  $("tapImg").style.clipPath = `inset(0 0 ${100 - shown}% 0)`;
 }
-
 function pickNext() {
   const keys = Object.keys(STATES).filter((k) => k !== state); // no same state twice in a row
   return keys[Math.floor(Math.random() * keys.length)];
