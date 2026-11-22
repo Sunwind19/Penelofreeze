@@ -18,7 +18,7 @@ function showBanner(text, sub, color) {
   $("bannerSub").innerHTML = sub;
   $("timeBar").style.background = color;
 }
-const MAX_ROWS = 20; // 이만큼 짜면 그림 완성
+const MAX_ROWS = 50; // 이만큼 짜면 그림 완성
 
 function updateStats() {
   $("dress").textContent = dress;
