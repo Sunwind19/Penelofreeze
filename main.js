@@ -1,30 +1,3 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<title>Penelope – Hand Test</title>
-<style>
-  body { margin: 0; background: #0b1020; color: #e8eefc; font-family: system-ui, sans-serif; }
-  #wrap { position: relative; width: 640px; height: 480px; margin: 20px auto 0; }
-  video, canvas { position: absolute; inset: 0; width: 640px; height: 480px; transform: scaleX(-1); border-radius: 12px; }
-  #hud { width: 640px; margin: 12px auto; font-size: 18px; line-height: 1.6; }
-  .big { font-size: 28px; font-weight: 700; }
-  #flash { transition: color .15s; }
-</style>
-</head>
-<body>
-<div id="wrap">
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas" width="640" height="480"></canvas>
-</div>
-<div id="hud">
-  <div id="status">Importing model...</div>
-  <div class="big">Build: <span id="weaveCount">0</span> · Unravel: <span id="unravelCount">0</span></div>
-  <div>손: <span id="handState">-</span> · <span id="flash"></span></div>
-  <div style="opacity:.6">Key: ← → Build / Space Unravel</div>
-</div>
-
-<script type="module">
 import { HandLandmarker, FilesetResolver, DrawingUtils }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/vision_bundle.mjs";
 
@@ -35,18 +8,18 @@ const PULL_DOWN = 0.12;         // Building dress distance
 const COOLDOWN_MS = 250;        
 
 // ===== Input layer =====
-const input = new EventTarget();
+export const input = new EventTarget();
 const emit = (name) => input.dispatchEvent(new Event(name));
 
-// Keybaord backup
+// Key backup
 addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") emit("weave");
-  if (e.key === " ") { e.preventDefault(); emit("unravel"); }
+  if (e.key === "Space") { e.preventDefault(); emit("unravel"); }
 });
 
 // For test
 let weaves = 0, unravels = 0;
-const $ = (id) => document.getElementById(id);
+export const $ = (id) => document.getElementById(id);
 function flash(text, color) { $("flash").textContent = text; $("flash").style.color = color; }
 input.addEventListener("weave",   () => { $("weaveCount").textContent = ++weaves;   flash("🧵 한 줄 짰다!", "#7dd3fc"); });
 input.addEventListener("unravel", () => { $("unravelCount").textContent = ++unravels; flash("🌙 한 줄 풀었다!", "#f9a8d4"); });
@@ -156,27 +129,22 @@ function loop() {
       const [screenLeft, screenRight] = [...all].sort((a, b) => b[0].x - a[0].x);
       detectAlternatePull([screenLeft[0].y, screenRight[0].y], now);
       $("handState").textContent =
-        lastPullHand === 0 ? "✊✊ 이제 오른손 당겨" :
-        lastPullHand === 1 ? "✊✊ 이제 왼손 당겨" :
-        "✊✊ 양손 주먹 (아무 손이나 당겨)";
+        lastPullHand === 0 ? "✊✊ Right Hand!" :
+        lastPullHand === 1 ? "✊✊ Left Hand" :
+        "✊✊ Make a fist in both hands! (Any hands)";
     } else if (fists > 0) {
-      // 한 손만 주먹이면 아무것도 안 함
-      $("handState").textContent = "✊ 양손 다 주먹 쥐어야 풀려";
+      $("handState").textContent = "✊ Need both hands to make a fist!";
       lastX = null; dir = 0; pullStartY = [null, null];
     } else if (all.length > 0) {
-      // 손 펴면 짜기 (양손이면 평균 위치로)
-      $("handState").textContent = all.length === 2 ? "🖐🖐 양손 (짜기 모드)" : "🖐 한 손 (짜기 모드)";
+      $("handState").textContent = all.length === 2 ? "🖐🖐 Both hand (Build)" : "🖐 One hand (Build))";
       pullStartY = [null, null];
       const avgX = all.reduce((s, lm) => s + lm[0].x, 0) / all.length;
       detectShuttle(avgX, now);
     } else {
-      $("handState").textContent = "손 안 보임";
+      $("handState").textContent = "Froze!!";
       resetTracking();
     }
   }
   requestAnimationFrame(loop);
 }
 loop();
-</script>
-</body>
-</html>

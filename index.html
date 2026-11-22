@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>Penelope – Hand Test</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="banner">
+  <div id="bannerText">🧵 Penelope's Loom</div>
+  <div id="bannerSub">Press Enter to start</div>
+  <div id="timeWrap"><div id="timeBar"></div></div>
+</div>
+<div id="wrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+</div>
+<div id="hud">
+  <div id="status">Importing model...</div>
+  <div class="big">Build: <span id="weaveCount">0</span> · Unravel: <span id="unravelCount">0</span></div>
+  <div>Dress: <span id="dress">0</span> rows · Rounds: <span id="rounds">0</span></div>
+  <div>Hand: <span id="handState">-</span> · <span id="flash"></span></div>
+  <div style="opacity:.6">Key: ← → Build / Space Unravel</div>
+</div>
+<script type="module" src="main.js"></script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
