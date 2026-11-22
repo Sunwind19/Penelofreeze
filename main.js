@@ -23,8 +23,8 @@ addEventListener("keydown", (e) => {
 let weaves = 0, unravels = 0;
 export const $ = (id) => document.getElementById(id);
 function flash(text, color) { $("flash").textContent = text; $("flash").style.color = color; }
-input.addEventListener("weave",   () => { $("weaveCount").textContent = ++weaves;   flash("🧵 한 줄 짰다!", "#7dd3fc"); });
-input.addEventListener("unravel", () => { $("unravelCount").textContent = ++unravels; flash("🌙 한 줄 풀었다!", "#f9a8d4"); });
+input.addEventListener("weave",   () => { $("weaveCount").textContent = ++weaves;   flash("Building one line", "#7dd3fc"); });
+input.addEventListener("unravel", () => { $("unravelCount").textContent = ++unravels; flash("Unraveling one line!", "#f9a8d4"); });
 
 // ===== Recognition set-up =====
 const video = $("video");

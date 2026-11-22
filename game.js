@@ -32,6 +32,23 @@ function pickNext() {
   return keys[Math.floor(Math.random() * keys.length)];
 }
 
+// ===== 상태별 손 GIF =====
+const HAND_GIFS = {
+  BUILD:   "leftrighthands.GIF",  // 짜기: 좌우
+  UNRAVEL: "updownhands.GIF",     // 풀기: 위아래
+  FREEZE:  null,                  // Freeze: 손 숨김
+};
+// 미리 불러두기 (처음 바뀔 때 깜빡임 방지)
+Object.values(HAND_GIFS).forEach((src) => { if (src) new Image().src = src; });
+
+function setHands(stateName) {
+  const el = $("hands");
+  const gif = HAND_GIFS[stateName];
+  if (!gif) { el.style.visibility = "hidden"; return; }
+  el.style.visibility = "visible";
+  if (!el.src.endsWith(gif)) el.src = gif;
+}
+
 function enterState(next) {
   state = next;
   const s = STATES[state];
@@ -40,6 +57,7 @@ function enterState(next) {
   stateEnd = stateStart + dur;
   doneInState = 0;
   showBanner(s.text, s.sub, s.color);
+  setHands(state);
   clearTimeout(timer);
   timer = setTimeout(endState, dur);
 }
@@ -61,11 +79,43 @@ function die(reason) {
   $("timeBar").style.width = "0";
   showBanner("Game Over", `${reason}<br>Rounds survived: ${rounds} · Press Enter to restart`, "#f87171");
 }
+// ===== Candle timer: 1:30 버티면 승리 =====
+const TOTAL_MS = 90 * 1000;
+const CANDLE_GIFS = ["candle1.GIF", "candle2.GIF", "candle3.GIF", "candle4.GIF"]; // full -> almost out
+const CANDLE_OUT = "candle5.gif";
+// GIF마다 촛불 바닥 위치가 달라서, 바닥을 맞추려고 아래로 내리는 양 (%)
+const CANDLE_DROP = { "candle1.GIF": 1, "candle2.GIF": 0, "candle3.GIF": 11, "candle4.GIF": 14, "candle5.gif": 10 };
+[...CANDLE_GIFS, CANDLE_OUT].forEach((src) => { new Image().src = src; }); // 미리 불러두기
+let gameStart = 0, candleStage = -1;
 
+function setCandle(src) {
+  const el = $("candle");
+  if (!el.src.endsWith(src)) el.src = src;
+  el.style.transform = `translateX(-50%) translateY(${CANDLE_DROP[src]}%)`;
+}
+
+function updateCandle() {
+  const elapsed = performance.now() - gameStart;
+  const remaining = Math.max(0, TOTAL_MS - elapsed);
+  const stage = Math.min(3, Math.floor(elapsed / (TOTAL_MS / 4)));
+  if (stage !== candleStage) { candleStage = stage; setCandle(CANDLE_GIFS[stage]); }
+  const secs = Math.ceil(remaining / 1000);
+  $("time").textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  if (remaining <= 0) win();
+}
+
+function win() {
+  alive = false;
+  clearTimeout(timer);
+  setCandle(CANDLE_OUT);
+  $("timeBar").style.width = "0";
+  showBanner("You survived the night!", `Dress: ${dress} rows · Press Enter to play again`, "#fcd34d");
+}
 function startGame() {
   dress = 0; rounds = 0; state = null; alive = true;
+  gameStart = performance.now(); candleStage = -1;
   updateStats();
-  enterState(pickNext());
+  enterState("BUILD");
 }
 
 function onAction(type) {
@@ -97,6 +147,7 @@ function tickUI() {
     const left = Math.max(0, stateEnd - performance.now());
     $("timeBar").style.width = (left / (stateEnd - stateStart)) * 100 + "%";
     if (s.need) $("bannerSub").textContent = `${s.sub} (${Math.min(doneInState, s.need)}/${s.need})`;
+    updateCandle(); // 맨 마지막에 (이길 때 배너를 덮어쓰지 않게)
   }
   requestAnimationFrame(tickUI);
 }
