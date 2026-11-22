@@ -161,8 +161,40 @@ function onAction(type) {
 
 input.addEventListener("weave", () => onAction("weave"));
 input.addEventListener("unravel", () => onAction("unravel"));
-addEventListener("keydown", (e) => { if (e.key === "Enter" && !alive) startGame(); });
+// ===== 배경음악 =====
+const bgm = new Audio("Troy.mp3");
+bgm.loop = true;      // 끝나면 처음부터 반복
+bgm.volume = 0.5;     // 0 ~ 1 (크기 조절은 여기)
+function playBgm() { bgm.play().catch(() => {}); }
+// ===== 시작 스토리 영상 (story.mp4) =====
+let storyActive = true;
+function playStory() {
+  playBgm(); // 스토리 시작할 때부터 배경음악
+  $("storyVideo").play()
+    .then(() => { $("storyHint").textContent = "Press Enter to skip"; })
+    .catch(() => {}); // 브라우저가 소리 있는 자동재생을 막으면 Enter 기다림
+}
+function endStory() {
+  if (!storyActive) return;
+  storyActive = false;
+  $("storyVideo").pause();
+  $("story").classList.add("hidden");
+  playBgm(); // 스토리 끝나면 배경음악 시작
+}
+$("storyVideo").addEventListener("ended", endStory);       // 다 보면 자동으로 넘어감
+$("storyVideo").addEventListener("error", endStory);       // 영상 파일이 없거나 깨지면 바로 게임으로
+$("story").addEventListener("click", () => ($("storyVideo").paused ? playStory() : endStory()));
+playStory(); // 바로 재생 시도
 
+addEventListener("keydown", (e) => {
+  if (e.code !== "Enter" && e.code !== "NumpadEnter") return;
+  if (e.repeat) return;
+  if (storyActive) {                    // 스토리 중: 첫 Enter = 재생, 다음 Enter = 건너뛰기
+    $("storyVideo").paused ? playStory() : endStory();
+    return;
+  }
+  if (!alive) startGame();
+});
 // time bar + progress
 function tickUI() {
   if (alive) {
@@ -175,11 +207,7 @@ function tickUI() {
   requestAnimationFrame(tickUI);
 }
 tickUI();
-// ===== 배경음악 =====
-const bgm = new Audio("Troy.mp3");
-bgm.loop = true;      // 끝나면 처음부터 반복
-bgm.volume = 0.5;     // 0 ~ 1 (크기 조절은 여기)
-function playBgm() { bgm.play().catch(() => {}); }
+
 playBgm();                                          // 바로 재생 시도 (브라우저가 막으면 조용히 넘어감)
 addEventListener("keydown", playBgm, { once: true }); // 막혔으면 첫 키 입력 때 재생
 addEventListener("click", playBgm, { once: true });   // 또는 첫 클릭 때

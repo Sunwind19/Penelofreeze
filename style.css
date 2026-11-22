@@ -121,12 +121,28 @@ video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; transfo
 /* 이미지 여백 잘라내고 밧줄 부분만 늘려서 채움 */
 #ropes img { position: absolute; width: 282.2%; left: -95.5%; height: 411%; top: -242.3%; max-width: none; }
 /* 새: BUILD 판이랑 같은 x, 촛불 중간 높이 */
+/* 새: BUILD 판이랑 왼쪽 맞춤, 촛불 앞까지만 */
 #bird {
   position: fixed;
-  left: 2vw;                    /* BUILD 판이랑 같은 왼쪽 위치 */
-  bottom: 16vh;                 /* 촛불 중간쯤 높이 (위아래 조절은 여기) */
-  width: min(18vw, 26vh);       /* BUILD 판이랑 같은 폭 (크기 조절은 여기) */
-  transform: translateY(50%);   /* 그림 한가운데를 그 높이에 맞춤 */
+  left: 2vw;                                  /* BUILD 판 왼쪽 끝이랑 맞춤 */
+  bottom: 30vh;                               /* 촛불 중간쯤 높이 */
+  width: calc(50% - 27vh - 2vw - 4vh);        /* 왼쪽 끝 ~ 촛불 앞 4vh까지만 */
+  height: 60vh;                               /* 최대 높이 (크기 조절은 여기) */
+  object-fit: contain;                        /* 박스 안에서 비율 유지하며 최대한 크게 */
+  object-position: left center;               /* 박스 왼쪽에 딱 붙임 */
+  transform: translateY(50%);                 /* 그림 가운데를 그 높이에 맞춤 */
   pointer-events: none;
   z-index: 3;
+}
+/* 시작 스토리 영상: 화면 전체를 덮음 */
+#story {
+  position: fixed; inset: 0; z-index: 100;
+  background: #000;
+  transition: opacity .8s;
+}
+#story.hidden { opacity: 0; pointer-events: none; }   /* 끝나면 스르륵 사라짐 */
+#storyVideo { width: 100%; height: 100%; object-fit: contain; transform: none; }
+#storyHint {
+  position: absolute; right: 3vw; bottom: 3vh;
+  color: #fff; opacity: .75; font: 700 2.2vh system-ui, sans-serif;
 }
