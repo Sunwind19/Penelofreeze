@@ -3,21 +3,23 @@ import { input, $ } from "./main.js";
 
 // ===== Game states (tune here) =====
 const STATES = {
-  FREEZE:  { text: "Freeze!",                   sub: "Don't move!",         color: "#93c5fd", min: 2000, max: 4000 },
-  BUILD:   { text: "Suitors are watching you!", sub: "Build the dress!",    color: "#fd6161", min: 4000, max: 6000, need: 2 },
-  UNRAVEL: { text: "Quick, unravel the dress!", sub: "Unravel it, quietly!", color: "rgb(191, 145, 247)", min: 4000, max: 6000, need: 2 },
+  FREEZE:  { img: "freezecentered.PNG",    color: "#93c5fd", min: 2000, max: 4000 },
+  BUILD:   { img: "makedresscentered.PNG", color: "#fd6161", min: 4000, max: 6000, need: 2 },
+  UNRAVEL: { img: "unravelcentered.PNG",   color: "rgb(191, 145, 247)", min: 4000, max: 6000, need: 2 },
 };
+const BANNER_IMGS = ["titlecentered.PNG", "gameovercentered.PNG", ...Object.values(STATES).map((s) => s.img)];
+BANNER_IMGS.forEach((src) => { new Image().src = src; }); // 미리 불러두기 (바뀔 때 깜빡임 방지)
 const GRACE_MS = 700; // reaction time right after a state change (mistakes forgiven)
 
 let state = null, stateStart = 0, stateEnd = 0, doneInState = 0;
 let dress = 0, rounds = 0, alive = false, timer = null;
 
-function showBanner(text, sub, color) {
-  $("bannerText").textContent = text;
-  $("bannerText").style.color = color;
+function showBanner(img, sub, color) {
+  $("bannerImg").src = img;
   $("bannerSub").innerHTML = sub;
   $("timeBar").style.background = color;
 }
+
 const MAX_ROWS = 50; // 이만큼 짜면 그림 완성
 
 function updateStats() {
@@ -56,7 +58,7 @@ function enterState(next) {
   stateStart = performance.now();
   stateEnd = stateStart + dur;
   doneInState = 0;
-  showBanner(s.text, s.sub, s.color);
+  showBanner(s.img, "", s.color);
   setHands(state);
   clearTimeout(timer);
   timer = setTimeout(endState, dur);
@@ -77,7 +79,7 @@ function die(reason) {
   alive = false;
   clearTimeout(timer);
   $("timeBar").style.width = "0";
-  showBanner("Game Over", `${reason}<br>Rounds survived: ${rounds} · Press Enter to restart`, "#f87171");
+    showBanner("gameovercentered.PNG", `${reason} · Rounds survived: ${rounds}`, "#f87171");
 }
 // ===== Candle timer: 1:30 버티면 승리 =====
 const TOTAL_MS = 90 * 1000;
@@ -109,7 +111,7 @@ function win() {
   clearTimeout(timer);
   setCandle(CANDLE_OUT);
   $("timeBar").style.width = "0";
-  showBanner("You survived the night!", `Dress: ${dress} rows · Press Enter to play again`, "#fcd34d");
+  showBanner("titlecentered.PNG", `You survived the night! Dress: ${dress} rows`, "#fcd34d");
 }
 function startGame() {
   dress = 0; rounds = 0; state = null; alive = true;
@@ -146,7 +148,7 @@ function tickUI() {
     const s = STATES[state];
     const left = Math.max(0, stateEnd - performance.now());
     $("timeBar").style.width = (left / (stateEnd - stateStart)) * 100 + "%";
-    if (s.need) $("bannerSub").textContent = `${s.sub} (${Math.min(doneInState, s.need)}/${s.need})`;
+    $("bannerSub").textContent = s.need ? `${Math.min(doneInState, s.need)} / ${s.need}` : "";
     updateCandle(); // 맨 마지막에 (이길 때 배너를 덮어쓰지 않게)
   }
   requestAnimationFrame(tickUI);

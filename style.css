@@ -23,11 +23,23 @@ video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; transfo
 #flash { transition: color .15s; }
 
 /* Game state banner */
-#banner { width: 640px; margin: 16px auto 0; padding: 14px 18px; border-radius: 12px; background: #6d91c2; text-align: center; box-sizing: border-box; }
-#bannerText { font-size: 30px; font-weight: 800; }
-#bannerSub { font-size: 18px; margin-top: 4px; opacity: .9; }
-#timeWrap { height: 6px; background: #ffffff22; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+#banner {
+  position: fixed; top: 1.5vh; left: 50%; transform: translateX(-50%);
+  width: min(26vw, 36vh);          /* 배너 이미지 크기 (tapestry랑 안 겹치게) */
+  z-index: 4;
+}
+/* 시간 바: 이미지 바깥, 살짝 위 */
+#timeWrap { height: 8px; margin: 0 6% 1vh; background: rgba(255, 255, 255, .4); border-radius: 4px; overflow: hidden; }
 #timeBar { height: 100%; width: 0; }
+/* 이미지에 빈 여백이 많아서, 그림 부분만 보이게 잘라서 보여줌 */
+#bannerImgBox { position: relative; width: 100%; aspect-ratio: 904 / 499; overflow: hidden; }
+#bannerImg { position: absolute; width: 250.7%; left: -78.1%; top: -82.8%; max-width: none; }
+/* 이미지 아래 작은 글씨 (진행도, 죽은 이유) */
+#bannerSub {
+  position: absolute; top: 100%; left: 0; right: 0; margin-top: .5vh;
+  text-align: center; font-size: 2vh; font-weight: 700; color: #fff8ec;
+  text-shadow: 0 2px 6px rgba(60, 20, 40, .8);
+}
 /* Tapestry: 짤수록 위에서부터 드러남 */
 #tapestry {
   position: fixed; left: 50%; top: 57%; transform: translate(-50%, -50%);
