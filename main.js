@@ -2,10 +2,11 @@ import { HandLandmarker, FilesetResolver, DrawingUtils }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/vision_bundle.mjs";
 
 // ===== Tuning =====
-const SHUTTLE_MIN_WIDTH = 0.25; // Building dress
+const SHUTTLE_MIN_WIDTH = 0.2; // Building dress
 const MOVE_NOISE = 0.01;        // Ignore small movement
 const PULL_DOWN = 0.12;         // Building dress distance
-const COOLDOWN_MS = 250;        
+const COOLDOWN_MS = 250; 
+const WEAVE_GRACE_MS = 250;        
 const PULL_COOLDOWN_MS = 120;
 const UNRAVEL_GRACE_MS = 300;
 // ===== Input layer =====
@@ -62,17 +63,21 @@ function isFist(lm) {
 }
 
 // Building: Left / Right motion
-let lastX = null, dir = 0, swingStartX = null, lastWeave = 0;
+let lastX = null, dir = 0, swingStartX = null, swingPeakX = null, lastWeave = 0;
 function detectShuttle(x, now) {
-  if (lastX === null) { lastX = swingStartX = x; return; }
+  if (lastX === null) { lastX = swingStartX = swingPeakX = x; return; }
   const d = x - lastX;
   const newDir = Math.abs(d) > MOVE_NOISE ? Math.sign(d) : dir;
   if (newDir !== 0 && dir !== 0 && newDir !== dir) {
-    if (Math.abs(x - swingStartX) > SHUTTLE_MIN_WIDTH && now - lastWeave > COOLDOWN_MS) {
+    // 방향이 바뀜 → 실제 끝점(peak)까지 간 폭으로 판정
+    if (Math.abs(swingPeakX - swingStartX) > SHUTTLE_MIN_WIDTH && now - lastWeave > COOLDOWN_MS) {
       emit("weave");
       lastWeave = now;
     }
-    swingStartX = x;
+    swingStartX = swingPeakX; // 새 스윙은 끝점에서 시작
+    swingPeakX = x;
+  } else if (dir === 0 || (x - swingPeakX) * dir > 0) {
+    swingPeakX = x;           // 같은 방향으로 더 가면 끝점 갱신
   }
   dir = newDir;
   lastX = x;
@@ -82,7 +87,8 @@ function detectShuttle(x, now) {
 let pullStartY = [null, null];  // [화면 왼쪽 손, 화면 오른쪽 손]의 기준 높이
 let lastPullHand = -1;          // 마지막으로 당긴 손 (-1 = 아직 없음)
 let lastPullTime = [0, 0];      // 손마다 따로 쿨다운 (양손 번갈아 빠르게 해도 안 막힘)
-let lastBothFists = 0;          // 마지막으로 양손 주먹이 보인 시각
+let lastBothFists = -Infinity;  // 마지막으로 양손 주먹이 보인 시각
+let lastOpenHand = -Infinity;   // 마지막으로 편 손이 보인 시각
 
 function detectAlternatePull(ys, now) {
   for (let i = 0; i < 2; i++) {
@@ -121,8 +127,9 @@ function loop() {
     // 양손 주먹이 잠깐 끊겨도 UNRAVEL_GRACE_MS 동안은 풀기 모드 유지
     const inUnravelMode = now - lastBothFists < UNRAVEL_GRACE_MS;
 
-    // 손 개수가 바뀌면 짜기 추적만 초기화 (풀기 기준점은 유지)
-    if (all.length !== lastHandCount) { resetWeave(); lastHandCount = all.length; }
+        // 손 개수가 바뀌면(1↔2) 짜기 추적만 초기화. 손이 잠깐 사라진 건(0) 무시
+    if (all.length > 0 && all.length !== lastHandCount) resetWeave();
+    if (all.length > 0) lastHandCount = all.length;
 
     for (const lm of all) {
       draw.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS, { color: "#7dd3fc", lineWidth: 4 });
@@ -141,14 +148,18 @@ function loop() {
         "✊✊ Make a fist in both hands! (Any hands)";
     } else if (inUnravelMode) {
       // 빠르게 당기다 손을 한 프레임 놓침 → 기준점 그대로 두고 기다림
-    } else if (fists > 0) {
-      $("handState").textContent = "✊ Need both hands to make a fist!";
-      resetWeave(); resetPull();
-    } else if (all.length > 0) {
+    } else if (all.length > 0 && fists === 0) {
+      // 손 펴면 짜기 (양손이면 평균 위치로)
+      lastOpenHand = now;
       $("handState").textContent = all.length === 2 ? "🖐🖐 Both hand (Build)" : "🖐 One hand (Build))";
       resetPull();
       const avgX = all.reduce((s, lm) => s + lm[0].x, 0) / all.length;
       detectShuttle(avgX, now);
+    } else if (now - lastOpenHand < WEAVE_GRACE_MS) {
+      // 빠르게 흔들다 손을 놓치거나 주먹으로 잘못 보임 → 짜기 기준점 그대로 두고 기다림
+    } else if (fists > 0) {
+      $("handState").textContent = "✊ Need both hands to make a fist!";
+      resetWeave(); resetPull();
     } else {
       $("handState").textContent = "Froze!!";
       resetTracking();
